@@ -1,0 +1,18 @@
+version: '3'
+services:
+  api:
+    image: game-server
+    build: .
+    networks:
+      - backend
+    ports:
+      - "3000:3000"
+
+  web3-backend:
+    image: web3-backend
+    build: .
+    networks:
+      - backend
+networks:
+  backend:
+    driver: bridge
