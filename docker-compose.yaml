@@ -1,8 +1,10 @@
 version: '3'
 services:
-  api:
+  game-server:
     image: game-server
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     networks:
       - backend
     ports:
@@ -10,7 +12,11 @@ services:
 
   web3-backend:
     image: web3-backend
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
     networks:
       - backend
 networks:

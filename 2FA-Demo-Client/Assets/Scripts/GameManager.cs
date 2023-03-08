@@ -1,7 +1,25 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+
+[System.Serializable]
+public class Bid
+{
+    public string itemName;
+    public float amount;
+    public string bidderName;
+    public string bidderAddress;
+    public string bidStatus;
+    public System.DateTime createdOn;
+}
+
+[System.Serializable]
+public class BidResponse
+{
+    public Bid[] bids;
+}
 
 public class GameManager : MonoBehaviour
 {
@@ -19,9 +37,39 @@ public class GameManager : MonoBehaviour
         this.changeItem(selectedItem);
         // Set random initisalisation for making it unselected
         this.changeBidder(100);
+        StartCoroutine(FetchData());
 
 
     }
+
+
+    public IEnumerator FetchData()
+    {
+        using (UnityWebRequest request = UnityWebRequest.Get("http://localhost:3000/api/v1/bids"))
+        {
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.ConnectionError)
+            {
+                Debug.Log(request.error);
+            }
+            else
+            {
+                Debug.Log(request.downloadHandler.text);
+
+                foreach (var obj in JsonUtility.FromJson<BidResponse>(request.downloadHandler.text).bids)
+                {
+                  //  Console.WriteLine(obj);
+                    Debug.Log(obj.itemName);
+                }
+
+            //    Bid[] bidList = new PlayerStatus();
+            //    playerStat = JsonUtility.FromJson<PlayerStatus>(request.downloadHandler.text);
+            //    playerStatusPanel.transform.GetChild(0).GetComponent<Text>().text = playerStat.playerName;
+            //    playerStatusPanel.transform.GetChild(1).GetComponent<Text>().text = "HP : " + playerStat.hp.ToString();
+            }
+        }
+    }
+
 
     // Update is called once per frame
     void Update()
@@ -70,6 +118,7 @@ public class GameManager : MonoBehaviour
     public void AwardBid ()
     {
         // Call the POST /transactions API and send the meta data
+
     }
 
     IEnumerator CreateTransaction()
