@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine;
+using UI.Dialogs;
 
 [System.Serializable]
 public class Bid
@@ -115,10 +117,44 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void AwardBid ()
-    {
-        // Call the POST /transactions API and send the meta data
 
+    public IEnumerator AwardBid()
+    {
+        // Call the POST / transactions API and send the meta data
+        using (UnityWebRequest request = UnityWebRequest.Post("http://localhost:3000/api/v1/bids/6407b3caf4bcae581fa879cc",""))
+        {
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.ConnectionError)
+            {
+                Debug.Log(request.error);
+                Debug.Log(request.downloadHandler.text);
+                uDialog.NewDialog()
+                 .SetTitleText("Transaction Error!")
+                 .SetContentText("Error while submitting the transaction.")
+                 .AddButton("Close", (dialog) => dialog.Close());
+            }
+            else
+            {
+                Debug.Log(request.downloadHandler.text);
+                uDialog.NewDialog()
+                 .SetTitleText("Transaction submitted!")
+                 .SetContentText("Please open the dashboard to approve this transaction.")
+                 .SetDimensions(800, 400)
+                 .SetTitleFontSize(40)
+                 .SetContentFontSize(50)
+                 .SetButtonFontSize(50)
+                 .SetButtonSize(150,90)
+                 .AddButton("Close", (dialog) => dialog.Close());
+
+            }
+        }
+
+    }
+
+
+    public void ClickAwardBid()
+    {
+        StartCoroutine(AwardBid());
     }
 
     IEnumerator CreateTransaction()
