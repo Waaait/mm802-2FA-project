@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine;
 using UI.Dialogs;
+using TMPro;
 
 [System.Serializable]
 public class Bid
@@ -15,6 +16,7 @@ public class Bid
     public string bidderAddress;
     public string bidStatus;
     public System.DateTime createdOn;
+    public String txHash;
 }
 
 [System.Serializable]
@@ -29,9 +31,14 @@ public class GameManager : MonoBehaviour
     public GameObject itemKnife;
     public GameObject itemGun;
     public int selectedItem;
+    public GameObject soldFilter;
+    public GameObject pane2;
+    public GameObject txSuccessPane;
+    public TextMeshProUGUI txHashObj;
 
     public List<GameObject> bidders;
     public int selectedBidder;
+    public String txHash = "";
     // Start is called before the first frame update
     void Start()
     {
@@ -40,8 +47,7 @@ public class GameManager : MonoBehaviour
         // Set random initisalisation for making it unselected
         this.changeBidder(100);
         StartCoroutine(FetchData());
-
-
+        soldFilter.SetActive(false);
     }
 
 
@@ -61,7 +67,18 @@ public class GameManager : MonoBehaviour
                 foreach (var obj in JsonUtility.FromJson<BidResponse>(request.downloadHandler.text).bids)
                 {
                   //  Console.WriteLine(obj);
-                    Debug.Log(obj.itemName);
+                    Debug.Log(obj.bidStatus);
+
+                   
+                    Debug.Log(obj.bidStatus + " " + obj.txHash);
+                    if(!string.IsNullOrWhiteSpace(obj.txHash))
+                    {
+                        this.txHash = obj.txHash;
+                        soldFilter.SetActive(true);
+                        pane2.SetActive(false);
+                        txSuccessPane.SetActive(true);
+                        txHashObj.SetText(this.txHash);
+                    }
                 }
 
             //    Bid[] bidList = new PlayerStatus();
@@ -99,6 +116,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void OpenTransactionUrl()
+    {
+        Debug.Log("TxHash: " + this.txHash);
+        Application.OpenURL("https://sepolia.etherscan.io/tx/"+ this.txHash);
+    }
+
     public void changeBidder(int selectedId)
     {
         Debug.Log("Changing selected Bidder to " + selectedId.ToString());
@@ -117,11 +140,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void RefreshData()
+    {
+       
+        StartCoroutine(FetchData());
+    }
+
 
     public IEnumerator AwardBid()
     {
         // Call the POST / transactions API and send the meta data
-        using (UnityWebRequest request = UnityWebRequest.Post("http://localhost:3000/api/v1/bids/6407b3caf4bcae581fa879cc",""))
+        using (UnityWebRequest request = UnityWebRequest.Post("http://localhost:3000/api/v1/bids/6407b3caf4bcae581fa879cc/award", ""))
         {
             yield return request.SendWebRequest();
             if (request.result == UnityWebRequest.Result.ConnectionError)

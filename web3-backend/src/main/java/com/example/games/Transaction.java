@@ -24,10 +24,15 @@ public class Transaction {
     public TransactionStatus status;
     public Date createdOn;
     public String userAddress;
+
     public String to;
     public String contractAddress;
     public String metaData;
     public String txHash;
+    public String webhookUrl;
+    public String abi;
+
+    public String name;
 
 //    private BSONObject metaDta;
 

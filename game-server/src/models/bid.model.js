@@ -6,7 +6,9 @@ const bidSchema = new mongoose.Schema({
     bidderAddress: String,
     bidderName: String,
     bidStatus: String,
-    createdOn: Date
+    createdOn: Date,
+    transactionId: String,
+    txHash: String
   });
 
   module.exports = {

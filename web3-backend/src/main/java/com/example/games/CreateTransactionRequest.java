@@ -16,4 +16,12 @@ public class CreateTransactionRequest {
     private String to;
     @Getter
     private String contractAddress;
+    @Getter
+    private String webhookUrl;
+    @Getter
+    private String abi;
+
+    @Getter
+    private String name;
+
 }

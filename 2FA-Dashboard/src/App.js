@@ -24,7 +24,8 @@ import { CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { ConnectWalletButton } from './ConnectWalletButtton';
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import Web3 from 'web3';
+const ethers = require("ethers")
+
 var relativeTime = require('dayjs/plugin/relativeTime');
 dayjs.extend(relativeTime);
 
@@ -44,6 +45,56 @@ function App() {
       metaData: {},
     },
   ]);
+
+
+  const updateTransaction = async (transactionId, status, txHash) => {
+    var myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+
+    var requestOptions = {
+      method: 'PUT',
+      headers: myHeaders,
+      redirect: 'follow'
+    };
+
+    fetch(`http://localhost:8080/api/v1/transactions/${transactionId}?txHash=${txHash}&status=${status}`, requestOptions)
+      .then(response => response.text())
+      .then(result => console.log(result))
+      .catch(error => console.log('error', error));
+  }
+
+  const getTransactions = async (userAddress) => {
+    var myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    var requestOptions = {
+      method: 'GET',
+      headers: myHeaders,
+      redirect: 'follow'
+    };
+
+    fetch(`http://localhost:8080/api/v1/transactions?userAddress=${userAddress}`, requestOptions)
+      .then(response => response.json())
+      .then(result => {
+        const prepared = result.sort((a, b) => new Date(b.createdOn) - new Date(a.createdOn));
+        setTransactions(prepared.map((f) => {
+          return {
+            name:f.name,
+            client: {
+              logo: 'https://media.licdn.com/dms/image/C560BAQH570LLby3QPg/company-logo_200_200/0/1644302187142?e=1685577600&v=beta&t=-SgK87HFGpICs_4N2PklXYXZspH6BiHFl5pg4olGFwE',
+              name: 'Matrix Worlds',
+            },
+            id: f.id,
+            key: f.id,
+            date: dayjs(f.createdOn).toDate(), status: f.status, contractAddress: f.contractAddress,
+            metaData: f.metaData,
+            abi: f.abi,
+            userAddress: f.userAddress,
+            to: f.to,
+          }
+        }))
+      })
+      .catch(error => console.log('error', error));
+  }
   useEffect(() => {
     window.ethereum
       .request({
@@ -52,7 +103,7 @@ function App() {
       .then((accounts) => {
         getTransactions(accounts[0]);
       });
-  });
+  }, []);
 
   const onPressConnect = async () => {
     setLoading(true);
@@ -67,7 +118,7 @@ function App() {
         // const account = Web3.utils.toChecksumAddress(accounts[0]);
         setAddress(accounts[0]);
 
-        generateAndSignTransaction();
+        // generateAndSignTransaction();
       }
     } catch (error) {
       console.log(error);
@@ -76,347 +127,77 @@ function App() {
     setLoading(false);
   };
 
-  const generateAndSignTransaction = async (contractAddress) => {
-    const ethereum = window.ethereum;
-    let web3 = new Web3(ethereum);
-    const accounts = await ethereum.request({
-      method: 'eth_requestAccounts',
+  const generateAndSignTransaction = async (tx) => {
+    return new Promise(async (resolve, reject) => {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const walletAddress = tx.userAddress // first account in MetaMask
+
+      console.log(tx)
+      // var contract = new web3.eth.Contract(
+      //   JSON.parse(tx.abi),
+      //   tx.contractAddress,
+      //   { gasPrice: '12345678', from: walletAddress }
+      // );
+
+      const signer = provider.getSigner();
+      // This code tells ethers.js how to interact with your NFT contract
+      const nftContractReadonly = new ethers.Contract(tx.contractAddress, JSON.parse(tx.abi), provider);
+      // Connecting with a signer allows you to use all the methods of the contract
+      const nftContract = nftContractReadonly.connect(signer);
+
+      // Transfer
+      try{
+        const txRes = await nftContract.transferFrom(walletAddress, tx.to, 1000000000000000);
+        console.log(txRes)
+        resolve({ hash: txRes.hash })
+      }catch(e){
+        reject(e);
+      }
     });
-    const walletAddress = accounts[0]; // first account in MetaMask
-
-    const abi = [
-      { inputs: [], stateMutability: 'nonpayable', type: 'constructor' },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'owner',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'approved',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'uint256',
-            name: 'tokenId',
-            type: 'uint256',
-          },
-        ],
-        name: 'Approval',
-        type: 'event',
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'owner',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'operator',
-            type: 'address',
-          },
-          {
-            indexed: false,
-            internalType: 'bool',
-            name: 'approved',
-            type: 'bool',
-          },
-        ],
-        name: 'ApprovalForAll',
-        type: 'event',
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'previousOwner',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'newOwner',
-            type: 'address',
-          },
-        ],
-        name: 'OwnershipTransferred',
-        type: 'event',
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'from',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'address',
-            name: 'to',
-            type: 'address',
-          },
-          {
-            indexed: true,
-            internalType: 'uint256',
-            name: 'tokenId',
-            type: 'uint256',
-          },
-        ],
-        name: 'Transfer',
-        type: 'event',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'to', type: 'address' },
-          { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-        ],
-        name: 'approve',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'player', type: 'address' },
-          { internalType: 'string', name: 'tokenURI', type: 'string' },
-        ],
-        name: 'awardItem',
-        outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [{ internalType: 'address', name: 'owner', type: 'address' }],
-        name: 'balanceOf',
-        outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
-        name: 'getApproved',
-        outputs: [{ internalType: 'address', name: '', type: 'address' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'owner', type: 'address' },
-          { internalType: 'address', name: 'operator', type: 'address' },
-        ],
-        name: 'isApprovedForAll',
-        outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [],
-        name: 'name',
-        outputs: [{ internalType: 'string', name: '', type: 'string' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [],
-        name: 'owner',
-        outputs: [{ internalType: 'address', name: '', type: 'address' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
-        name: 'ownerOf',
-        outputs: [{ internalType: 'address', name: '', type: 'address' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [],
-        name: 'renounceOwnership',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'from', type: 'address' },
-          { internalType: 'address', name: 'to', type: 'address' },
-          { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-        ],
-        name: 'safeTransferFrom',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'from', type: 'address' },
-          { internalType: 'address', name: 'to', type: 'address' },
-          { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-          { internalType: 'bytes', name: 'data', type: 'bytes' },
-        ],
-        name: 'safeTransferFrom',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'operator', type: 'address' },
-          { internalType: 'bool', name: 'approved', type: 'bool' },
-        ],
-        name: 'setApprovalForAll',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'bytes4', name: 'interfaceId', type: 'bytes4' },
-        ],
-        name: 'supportsInterface',
-        outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [],
-        name: 'symbol',
-        outputs: [{ internalType: 'string', name: '', type: 'string' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
-        name: 'tokenURI',
-        outputs: [{ internalType: 'string', name: '', type: 'string' }],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'from', type: 'address' },
-          { internalType: 'address', name: 'to', type: 'address' },
-          { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-        ],
-        name: 'transferFrom',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          { internalType: 'address', name: 'newOwner', type: 'address' },
-        ],
-        name: 'transferOwnership',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-    ];
-
-    var contract = new web3.eth.Contract(
-      abi,
-      contractAddress || '0xe010eB986E89d5aa36A8dfF89b9E6807827450fe',
-      { gasPrice: '12345678', from: walletAddress }
-    );
-
-    // const estimatedGas = await contract.methods
-    //   .transferFrom(
-    //     walletAddress,
-    //     '0x585B95073e8B51FcCC8FFa3415cD1a3B5618aB14',
-    //     1
-    //   )
-    //   .estimateGas({ from: accounts[0], maxFeesPerGas: 13854680832 });
-    // console.log(estimatedGas);
-
-    // console.log(
-    //   await contract.methods
-    //     .transferFrom(
-    //       walletAddress,
-    //       '0x585B95073e8B51FcCC8FFa3415cD1a3B5618aB14',
-    //       1
-    //     )
-    //     .estimateGas({
-    //       from: accounts[0],
-    //       maxFeePerGas: 100000000,
-    //       gasPrice: 1000000000,
-    //       gas: 100000000000,
+    //       contract.methods
+    //         .transferFrom(
+    //           walletAddress,
+    //           tx.to,
+    //           1
+    //         )
+    //         .send(
+    //           { from: walletAddress, gasPrice: 1000000000, gas: 10000000 },
+    //           function (error, txnHash) {
+    //             if (error) { reject(error) };
+    //             console.log(txnHash);
+    //             resolve(txnHash)
+    //           }
+    //         );
     //     })
-    // );
-
-    console.log(accounts);
-
-    contract.methods
-      .transferFrom(
-        walletAddress,
-        '0x585B95073e8B51FcCC8FFa3415cD1a3B5618aB14',
-        1
-      )
-      .send(
-        { from: accounts[0], gasPrice: 1000000000, gas: 10000000 },
-        function (error, txnHash) {
-          if (error) throw error;
-          console.log(txnHash);
-        }
-      );
-
-    // // using the event emitter
-    // contract.methods
-    //   .transferFrom(
-    //     walletAddress,
-    //     '0x585B95073e8B51FcCC8FFa3415cD1a3B5618aB14',
-    //     1
-    //   )
-    //   .send({ from: walletAddress })
-    //   .on('transactionHash', function (hash) {
-    //     console.log(hash);
-    //   })
-    //   .on('confirmation', function (confirmationNumber, receipt) {
-    //     console.log('confirmationNumber', confirmationNumber);
-    //   })
-    //   .on('receipt', function (receipt) {
-    //     // receipt example
-    //     console.log(receipt);
-    //   })
-    //   .on('error', console.error); // If there's an out of gas error the second parameter is the receipt.
   };
 
-  const getTransactions = async (userAddress) => {
-    var myHeaders = new Headers();
-    myHeaders.append('Content-Type', 'application/json');
+  const handleApproveTransaction = async (tx) => {
+    try {
+      const txRes = await generateAndSignTransaction(tx); // TODO - Update the parameters
+      await updateTransaction(tx.id, 'SUCCESSFUL', txRes.hash)
+      setTransactions(transactions.map((t) => {
+        if (t.id === tx.id) t.status = 'SUCCESSFUL'
+        return t;
+      }));
+    } catch (e) {
+      console.log("Error signing transaction.", e);
+    }
+  }
 
-    var requestOptions = {
-      crossDomain: true,
-      method: 'GET',
-      headers: myHeaders,
-      redirect: 'follow',
-    };
+  const handleRejectTransaction = async (id) => {
+    // console.log("Rejecting")
+    try {
+      // update local state
+      await updateTransaction(id, "REJECTED", '');
+      setTransactions(JSON.parse(JSON.stringify(transactions.map((t) => {
+        if (t.id === id) t.status = 'REJECTED'
+        return t;
+      }))));
+    } catch (e) {
+      console.log("Error rejecting transaction", e)
+    }
+  }
 
-    fetch(
-      'http://144.202.89.42:8080/api/v1/transactions?userAddress=' +
-        userAddress,
-      requestOptions
-    )
-      .then((response) => response.text())
-      .then((result) => console.log(result))
-      .catch((error) => console.log('error', error));
-  };
 
   const onPressLogout = () => setAddress('');
   return (
@@ -477,7 +258,7 @@ function App() {
                       {transactions &&
                         transactions.map((t) => {
                           return (
-                            <Tr>
+                            <Tr key={t.key}>
                               <Td>
                                 <Avatar
                                   name={t.client.name}
@@ -487,80 +268,38 @@ function App() {
                               <Td>{t.name}</Td>
                               <Td>{dayjs(t.date).fromNow()}</Td>
                               <Td>
-                                {t.status === 'pending' && (
-                                  <Badge colorScheme="purple">Pending</Badge>
+                                {t.status === 'CREATED' && (
+                                  <Badge colorScheme="purple">CREATED</Badge>
                                 )}
-                                {t.status === 'completed' && (
-                                  <Badge colorScheme="purple">Completed</Badge>
+                                {t.status === 'SUCCESSFUL' && (
+                                  <Badge colorScheme="purple">SUCCESSFUL</Badge>
                                 )}
-                                {t.status === 'canceled' && (
-                                  <Badge colorScheme="grey">Canceled</Badge>
+                                {t.status === 'REJECTED' && (
+                                  <Badge colorScheme="grey">REJECTED</Badge>
                                 )}
                               </Td>
                               <Td>
-                                <IconButton
-                                  colorScheme="green"
-                                  aria-label="Approve Transaction"
-                                  icon={<CheckIcon />}
-                                />
-                                <IconButton
-                                  aria-label="Cancel Transaction"
-                                  icon={<CloseIcon />}
-                                  className="cancel-btn"
-                                />
+                                {t.status === 'CREATED' && (
+                                  <>
+                                    <IconButton
+                                      colorScheme="green"
+                                      aria-label="Approve Transaction"
+                                      icon={<CheckIcon />}
+                                      onClick={() => handleApproveTransaction(t)}
+                                    />
+                                    <IconButton
+                                      aria-label="Cancel Transaction"
+                                      icon={<CloseIcon />}
+                                      className="cancel-btn"
+                                      onClick={() => handleRejectTransaction(t.id)}
+                                    />
+                                  </>
+                                )}
+
                               </Td>
                             </Tr>
                           );
                         })}
-
-                      {/* <Tr>
-                        <Td>
-                          <Avatar
-                            name="Android Demo"
-                            src="https://media.licdn.com/dms/image/C560BAQH570LLby3QPg/company-logo_200_200/0/1644302187142?e=1685577600&v=beta&t=-SgK87HFGpICs_4N2PklXYXZspH6BiHFl5pg4olGFwE"
-                          />
-                        </Td>
-                        <Td>Receive 3 gems</Td>
-                        <Td>30 min ago</Td>
-                        <Td>
-                          <Badge colorScheme="purple">Pending</Badge>
-                        </Td>
-                        <Td>
-                          <IconButton
-                            colorScheme="green"
-                            aria-label="Approve Transaction"
-                            icon={<CheckIcon />}
-                          />
-                          <IconButton
-                            aria-label="Cancel Transaction"
-                            icon={<CloseIcon />}
-                          />
-                        </Td>
-                      </Tr>
-                      <Tr>
-                        <Td>
-                          <Avatar
-                            name="iOS Demo"
-                            src="https://media.idownloadblog.com/wp-content/uploads/2018/07/Apple-logo-black-and-white-768x895.png"
-                          />
-                        </Td>
-                        <Td>Receive exclusive NFTs</Td>
-                        <Td>1 day ago</Td>
-                        <Td>
-                          <Badge colorScheme="purple">Pending</Badge>
-                        </Td>
-                        <Td>
-                          <IconButton
-                            colorScheme="green"
-                            aria-label="Approve Transaction"
-                            icon={<CheckIcon />}
-                          />
-                          <IconButton
-                            aria-label="Cancel Transaction"
-                            icon={<CloseIcon />}
-                          />
-                        </Td>
-                      </Tr> */}
                     </Tbody>
                   </Table>
                 </TableContainer>

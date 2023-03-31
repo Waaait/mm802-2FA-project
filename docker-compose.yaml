@@ -3,22 +3,22 @@ services:
   game-server:
     image: game-server
     build:
-      context: .
+      context: ./game-server
       dockerfile: Dockerfile
-    networks:
-      - backend
+    # networks:
+    #   - backend
     ports:
       - "3000:3000"
 
   web3-backend:
     image: web3-backend
     build:
-      context: .
+      context: ./web3-backend
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    networks:
-      - backend
-networks:
-  backend:
-    driver: bridge
+    # networks:
+    #   - backend
+# networks:
+#   backend:
+#     driver: bridge
